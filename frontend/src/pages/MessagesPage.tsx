@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { socketService } from '../services/socketService'
 import './MessagesPage.css'
@@ -19,13 +18,13 @@ interface MessageableUser {
 }
 
 interface Message {
-  _id: string
-  // socket messages may carry partial user objects; allow either id string or partial user info
-  senderId: string | { _id: string; name?: string; email?: string; userType?: string }
-  receiverId: string | { _id: string; name?: string }
-  content: string
-  createdAt: string
-  isRead: boolean
+  _id: string
+  // socket messages may carry partial user objects; allow either id string or partial user info
+  senderId: string | { _id: string; name?: string; email?: string; userType?: string }
+  receiverId: string | { _id: string; name?: string }
+  content: string
+  createdAt: string
+  isRead: boolean
 }
 
 interface Conversation {
@@ -36,31 +35,35 @@ interface Conversation {
 }
 
 export const MessagesPage = () => {
-  const { user, token } = useAuthStore()
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [messageInput, setMessageInput] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const typingTimeoutRef = useRef<number | undefined>(undefined)
-  const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  const { user, token } = useAuthStore()
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [messageInput, setMessageInput] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [messageableUsers, setMessageableUsers] = useState<MessageableUser[]>([]);
+  // Controls whether to show the conversation list or the list of users to start a new chat
+  const [showUserList, setShowUserList] = useState(false); 
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<number | undefined>(undefined)
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
-  // Get the other user from a conversation
-  const getOtherUser = (conversation: Conversation): User | null => {
-    if (conversation.otherUser) return conversation.otherUser
-    
-    const lastMsg = conversation.lastMessage
-    const senderId = typeof lastMsg.senderId === 'string' ? lastMsg.senderId : lastMsg.senderId._id
-    // receiverId not used in this logic, keep lastMsg fields as the source of truth
-    
-    if (senderId === user?._id) {
-      return typeof lastMsg.receiverId === 'string' ? null : lastMsg.receiverId
-    } else {
-      return typeof lastMsg.senderId === 'string' ? null : lastMsg.senderId
-    }
-  }
+  // Get the other user from a conversation
+  const getOtherUser = (conversation: Conversation): User | null => {
+    if (conversation.otherUser) return conversation.otherUser
+    
+    const lastMsg = conversation.lastMessage
+    const senderId = typeof lastMsg.senderId === 'string' ? lastMsg.senderId : lastMsg.senderId._id
+    // receiverId not used in this logic, keep lastMsg fields as the source of truth
+    
+    if (senderId === user?._id) {
+      return typeof lastMsg.receiverId === 'string' ? null : lastMsg.receiverId
+    } else {
+      return typeof lastMsg.senderId === 'string' ? null : lastMsg.senderId
+    }
+  }
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -82,51 +85,52 @@ export const MessagesPage = () => {
     }
   }
 
-  // Fetch conversations
-  const fetchConversations = async () => {
-    try {
-      const response = await fetch(`${API}/messages/conversations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      const data = await response.json()
-      
-      // Fetch user details for each conversation
-      const conversationsWithUsers = await Promise.all(
-        data.map(async (conv: Conversation) => {
-          const otherUserId = conv._id
-          try {
-            const userResponse = await fetch(`${API}/users/${otherUserId}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            })
-            if (userResponse.ok) {
-              const userData = await userResponse.json()
-              return { ...conv, otherUser: userData }
-            }
-            // Fallback: if lastMessage includes embedded user object, use that
-            const last = conv.lastMessage
-            const sender = typeof last.senderId === 'object' ? last.senderId : null
-            const receiver = typeof last.receiverId === 'object' ? last.receiverId : null
-            const fallbackUser = sender && sender._id !== (user?._id) ? sender : receiver
-            if (fallbackUser) return { ...conv, otherUser: fallbackUser }
-            return { ...conv }
-          } catch (error) {
-            console.error('Error fetching user:', error)
-            return conv
-          }
-        })
-      )
-      
-      setConversations(conversationsWithUsers)
-    } catch (error) {
-      console.error('Error fetching conversations:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Fetch conversations
+  const fetchConversations = async () => {
+    try {
+      const response = await fetch(`${API}/messages/conversations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const data = await response.json()
+      
+      // Fetch user details for each conversation
+      const conversationsWithUsers = await Promise.all(
+        data.map(async (conv: Conversation) => {
+          // The _id of the conversation response is the ID of the other user
+          const otherUserId = conv._id 
+          try {
+            const userResponse = await fetch(`${API}/users/${otherUserId}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            })
+            if (userResponse.ok) {
+              const userData = await userResponse.json()
+              return { ...conv, otherUser: userData }
+            }
+            // Fallback: if lastMessage includes embedded user object, use that
+            const last = conv.lastMessage
+            const sender = typeof last.senderId === 'object' ? last.senderId : null
+            const receiver = typeof last.receiverId === 'object' ? last.receiverId : null
+            const fallbackUser = sender && sender._id !== (user?._id) ? sender : receiver
+            if (fallbackUser) return { ...conv, otherUser: fallbackUser }
+            return { ...conv }
+          } catch (error) {
+            console.error('Error fetching user:', error)
+            return conv
+          }
+        })
+      )
+      
+      setConversations(conversationsWithUsers)
+    } catch (error) {
+      console.error('Error fetching conversations:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Fetch messages for a conversation
   const fetchMessages = async (userId: string) => {
@@ -149,43 +153,43 @@ export const MessagesPage = () => {
     e.preventDefault()
     if (!messageInput.trim() || !selectedConversation || !user) return
 
-    try {
-      const response = await fetch(`${API}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          receiverId: selectedConversation,
-          content: messageInput
-        })
-      })
-      
-      const newMessage = await response.json()
-      
-      // Add to local messages
-      setMessages(prev => [...prev, newMessage])
-      
-      // Send via socket (server expects sendMessage(roomId, message))
-      const roomId = [user._id, selectedConversation].sort().join('-')
-      // the socket service will emit { roomId, message } so pass the message object
-      const socketPayload = {
-        ...newMessage,
-        senderId: user._id || user.id,
-        receiverId: selectedConversation
-      }
-      socketService.sendMessage(roomId, socketPayload)
-      
-      setMessageInput('')
-      scrollToBottom()
-      
-      // Refresh conversations to update last message
-      fetchConversations()
-    } catch (error) {
-      console.error('Error sending message:', error)
-    }
-  }
+    try {
+      const response = await fetch(`${API}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          receiverId: selectedConversation,
+          content: messageInput
+        })
+      })
+      
+      const newMessage = await response.json()
+      
+      // Add to local messages
+      setMessages(prev => [...prev, newMessage])
+      
+      // Send via socket (server expects sendMessage(roomId, message))
+      const roomId = [user._id, selectedConversation].sort().join('-')
+      // the socket service will emit { roomId, message } so pass the message object
+      const socketPayload = {
+        ...newMessage,
+        senderId: user._id || user.id,
+        receiverId: selectedConversation
+      }
+      socketService.sendMessage(roomId, socketPayload)
+      
+      setMessageInput('')
+      scrollToBottom()
+      
+      // Refresh conversations to update last message
+      fetchConversations()
+    } catch (error) {
+      console.error('Error sending message:', error)
+    }
+  }
 
   // Handle typing indicator
   const handleTyping = () => {
@@ -233,31 +237,34 @@ export const MessagesPage = () => {
   useEffect(() => {
     if (!user || !token) return
 
-    // connect passing a stable user id (socket auth uses user id)
-    socketService.connect(token)
-    fetchConversations()
+    // connect passing a stable user id (socket auth uses user id)
+    socketService.connect(token)
+    fetchConversations()
+    fetchUsers() // FETCH USERS ON INITIAL LOAD
 
-    // Listen for incoming messages
-    const handleReceiveMessage = (message: Message) => {
-      setMessages(prev => [...prev, message])
-      scrollToBottom()
-      fetchConversations() // Update conversation list
-    }
+    // Listen for incoming messages
+    const handleReceiveMessage = (message: Message) => {
+      setMessages(prev => [...prev, message])
+      scrollToBottom()
+      fetchConversations() // Update conversation list
+    }
 
-    // Listen for typing
-    const handleUserTyping = () => {
-      setIsTyping(true)
-      setTimeout(() => setIsTyping(false), 3000)
-    }
+    // Listen for typing
+    const handleUserTyping = () => {
+      setIsTyping(true)
+      // The timeout is managed by the sender via handleTyping,
+      // but a fallback timeout here is harmless if the sender fails to send 'stop typing'
+      setTimeout(() => setIsTyping(false), 3000)
+    }
 
     socketService.onReceiveMessage(handleReceiveMessage)
     socketService.onUserTyping(handleUserTyping)
 
-    return () => {
-      socketService.removeAllListeners()
-      socketService.disconnect()
-    }
-  }, [user, token])
+    return () => {
+      socketService.removeAllListeners()
+      socketService.disconnect()
+    }
+  }, [user, token])
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -444,42 +451,42 @@ export const MessagesPage = () => {
               </div>
             </div>
 
-            {/* Messages List */}
-            <div className="messages-list">
-              {messages.map((message) => {
-                const senderId = typeof message.senderId === 'string' 
-                  ? message.senderId 
-                  : message.senderId._id
-                
-                const isSent = senderId === user?._id
-                
-                return (
-                  <div key={message._id} className={`message ${isSent ? 'sent' : 'received'}`}>
-                    <div className="message-content">
-                      <p>{message.content}</p>
-                      <span className="message-time">
-                        {formatTime(message.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-              
-              {isTyping && (
-                <div className="message received">
-                  <div className="typing-indicator">
-                    <span>typing</span>
-                    <div className="typing-dots">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
+            {/* Messages List */}
+            <div className="messages-list">
+              {messages.map((message) => {
+                const senderId = typeof message.senderId === 'string' 
+                  ? message.senderId 
+                  : message.senderId._id
+                
+                const isSent = senderId === user?._id
+                
+                return (
+                  <div key={message._id} className={`message ${isSent ? 'sent' : 'received'}`}>
+                    <div className="message-content">
+                      <p>{message.content}</p>
+                      <span className="message-time">
+                        {formatTime(message.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {isTyping && (
+                <div className="message received">
+                  <div className="typing-indicator">
+                    <span>typing</span>
+                    <div className="typing-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
 
             {/* Message Input */}
             <form className="message-input-form" onSubmit={handleSendMessage}>
