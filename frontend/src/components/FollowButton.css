@@ -1,0 +1,70 @@
+/* Save as: frontend/src/components/FollowButton.css */
+
+.follow-btn {
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+/* Sizes */
+.follow-btn-small {
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+.follow-btn-medium {
+  padding: 8px 24px;
+  font-size: 14px;
+}
+
+.follow-btn-large {
+  padding: 12px 32px;
+  font-size: 15px;
+}
+
+/* Follow state (not following) */
+.follow-btn-follow {
+  background: #2196f3;
+  color: white;
+}
+
+.follow-btn-follow:hover {
+  background: #1976d2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+/* Following state */
+.follow-btn-following {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.follow-btn-following:hover {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.follow-btn-following:hover::after {
+  content: ' Unfollow';
+  margin-left: -60px;
+}
+
+/* Loading state */
+.follow-btn-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.follow-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Pressed effect */
+.follow-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
