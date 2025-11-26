@@ -1,17 +1,19 @@
-/* Save as: frontend/src/pages/UserProfileView.css */
+/* UserProfileView.css */
 
 .profile-view-container {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
 }
 
-.profile-loading,
-.profile-error {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-  font-size: 16px;
+.profile-content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+
+.profile-main-section {
+  min-width: 0;
 }
 
 /* Profile Header */
@@ -72,11 +74,23 @@
   font-size: 15px;
 }
 
-.profile-company,
-.profile-location {
-  color: #666;
-  margin: 8px 0;
-  font-size: 14px;
+.user-type-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.user-type-badge.influencer {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.user-type-badge.brand {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
 }
 
 .profile-bio {
@@ -84,6 +98,15 @@
   margin: 16px 0;
   line-height: 1.6;
   font-size: 15px;
+}
+
+.profile-location {
+  color: #666;
+  margin: 8px 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .profile-stats {
@@ -118,18 +141,23 @@
 
 .message-btn {
   padding: 12px 32px;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background: #2196f3;
+  color: white;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   font-size: 15px;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .message-btn:hover {
-  background: #e0e0e0;
-  border-color: #bdbdbd;
+  background: #1976d2;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
 }
 
 /* Profile Sections */
@@ -181,66 +209,175 @@
   color: white;
 }
 
-.social-link.tiktok {
-  background: #000000;
-  color: white;
+/* Suggestions Sidebar */
+.suggestions-sidebar {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  height: fit-content;
+  position: sticky;
+  top: 20px;
 }
 
-.social-link.twitter {
-  background: #1da1f2;
-  color: white;
+.suggestions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
 }
 
-/* Metrics */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  background: #f9f9f9;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-}
-
-.metric-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #2196f3;
-  margin-bottom: 8px;
-}
-
-.metric-label {
-  font-size: 13px;
-  color: #666;
-  font-weight: 500;
-}
-
-/* Company Info */
-.company-info p {
-  margin: 12px 0;
-  font-size: 15px;
+.suggestions-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
   color: #333;
 }
 
-.company-info strong {
-  color: #666;
+.suggestions-loading,
+.suggestions-empty {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.suggestion-item:hover {
+  background: #f9f9f9;
+}
+
+.suggestion-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.suggestion-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 18px;
   font-weight: 600;
 }
 
-.company-info a {
-  color: #2196f3;
-  text-decoration: none;
+.suggestion-info {
+  flex: 1;
+  min-width: 0;
 }
 
-.company-info a:hover {
-  text-decoration: underline;
+.suggestion-info h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+
+.suggestion-info h4:hover {
+  color: #2196f3;
+}
+
+.suggestion-type {
+  font-size: 12px;
+  color: #999;
+  margin: 0 0 2px 0;
+  text-transform: capitalize;
+}
+
+.suggestion-followers {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+}
+
+.suggestion-follow-btn {
+  padding: 6px 16px;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.suggestion-follow-btn:hover {
+  background: #1976d2;
+}
+
+.suggestion-follow-btn.following {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.suggestion-follow-btn.following:hover {
+  background: #e0e0e0;
+}
+
+.see-all-btn {
+  width: 100%;
+  padding: 12px;
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.see-all-btn:hover {
+  background: #e0e0e0;
+  border-color: #bdbdbd;
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .profile-content-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .suggestions-sidebar {
+    position: static;
+  }
+}
+
 @media (max-width: 768px) {
   .profile-header-content {
     flex-direction: column;
@@ -272,9 +409,5 @@
 
   .profile-actions button {
     width: 100%;
-  }
-
-  .metrics-grid {
-    grid-template-columns: 1fr;
   }
 }
