@@ -1,91 +1,80 @@
-import { io, Socket } from 'socket.io-client'
-
-interface Message {
-  _id: string
-  senderId: string | { _id: string; name: string }
-  receiverId: string | { _id: string; name: string }
-  content: string
-  createdAt: string
-  isRead: boolean
-}
-
-interface TypingData {
-  userName: string
-  userId: string
-}
+// socketService.ts
+import io, { Socket } from 'socket.io-client'
 
 class SocketService {
   private socket: Socket | null = null
-  private readonly SOCKET_URL = 'http://localhost:5000'
+  private isConnected: boolean = false
 
   connect(token: string) {
-    if (this.socket?.connected) {
-      return
+    try {
+      if (this.socket && this.isConnected) {
+        return
+      }
+
+      const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+      
+      this.socket = io(SOCKET_URL, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+      })
+
+      this.socket.on('connect', () => {
+        console.log('Socket connected')
+        this.isConnected = true
+      })
+
+      this.socket.on('disconnect', () => {
+        console.log('Socket disconnected')
+        this.isConnected = false
+      })
+
+      this.socket.on('connect_error', (error) => {
+        console.warn('Socket connection error:', error.message)
+        this.isConnected = false
+      })
+    } catch (error) {
+      console.warn('Failed to initialize socket:', error)
     }
-
-    this.socket = io(this.SOCKET_URL, {
-      auth: {
-        token
-      },
-      transports: ['websocket', 'polling']
-    })
-
-    this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket?.id)
-    })
-
-    this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error)
-    })
-
-    this.socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason)
-    })
   }
 
   disconnect() {
     if (this.socket) {
       this.socket.disconnect()
       this.socket = null
+      this.isConnected = false
     }
   }
 
   joinRoom(roomId: string) {
-    if (this.socket) {
-      this.socket.emit('join-room', roomId)
-      console.log('Joined room:', roomId)
+    if (this.socket && this.isConnected) {
+      this.socket.emit('joinRoom', roomId)
     }
   }
 
-  sendMessage(roomId: string, message: Message) {
-    if (this.socket) {
-      this.socket.emit('send-message', {
-        roomId,
-        message
-      })
-    }
-  }
-
-  onReceiveMessage(callback: (message: Message) => void) {
-    if (this.socket) {
-      this.socket.on('receive-message', (data: { message: Message }) => {
-        callback(data.message)
-      })
+  sendMessage(roomId: string, message: any) {
+    if (this.socket && this.isConnected) {
+      this.socket.emit('sendMessage', { roomId, message })
     }
   }
 
   emitTyping(roomId: string, userName: string) {
-    if (this.socket) {
-      this.socket.emit('typing', {
-        roomId,
-        userName
-      })
+    if (this.socket && this.isConnected) {
+      this.socket.emit('typing', { roomId, userName })
     }
   }
 
-  onUserTyping(callback: (data: TypingData) => void) {
+  onReceiveMessage(callback: (message: any) => void) {
     if (this.socket) {
-      this.socket.on('user-typing', callback)
+      this.socket.on('receiveMessage', callback)
+    }
+  }
+
+  onUserTyping(callback: () => void) {
+    if (this.socket) {
+      this.socket.on('userTyping', callback)
     }
   }
 

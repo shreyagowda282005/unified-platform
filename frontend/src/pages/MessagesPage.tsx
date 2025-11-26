@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { socketService } from '../services/socketService'
 import './MessagesPage.css'
@@ -13,7 +14,6 @@ interface User {
 
 interface Message {
   _id: string
-  // socket messages may carry partial user objects; allow either id string or partial user info
   senderId: string | { _id: string; name?: string; email?: string; userType?: string }
   receiverId: string | { _id: string; name?: string }
   content: string
@@ -30,6 +30,9 @@ interface Conversation {
 
 export const MessagesPage = () => {
   const { user, token } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  const userIdFromUrl = searchParams.get('userId')
+  
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -46,7 +49,6 @@ export const MessagesPage = () => {
     
     const lastMsg = conversation.lastMessage
     const senderId = typeof lastMsg.senderId === 'string' ? lastMsg.senderId : lastMsg.senderId._id
-    // receiverId not used in this logic, keep lastMsg fields as the source of truth
     
     if (senderId === user?._id) {
       return typeof lastMsg.receiverId === 'string' ? null : lastMsg.receiverId
@@ -84,7 +86,6 @@ export const MessagesPage = () => {
               const userData = await userResponse.json()
               return { ...conv, otherUser: userData }
             }
-            // Fallback: if lastMessage includes embedded user object, use that
             const last = conv.lastMessage
             const sender = typeof last.senderId === 'object' ? last.senderId : null
             const receiver = typeof last.receiverId === 'object' ? last.receiverId : null
@@ -142,12 +143,9 @@ export const MessagesPage = () => {
       
       const newMessage = await response.json()
       
-      // Add to local messages
       setMessages(prev => [...prev, newMessage])
       
-      // Send via socket (server expects sendMessage(roomId, message))
       const roomId = [user._id, selectedConversation].sort().join('-')
-      // the socket service will emit { roomId, message } so pass the message object
       const socketPayload = {
         ...newMessage,
         senderId: user._id || user.id,
@@ -158,7 +156,6 @@ export const MessagesPage = () => {
       setMessageInput('')
       scrollToBottom()
       
-      // Refresh conversations to update last message
       fetchConversations()
     } catch (error) {
       console.error('Error sending message:', error)
@@ -196,18 +193,15 @@ export const MessagesPage = () => {
   useEffect(() => {
     if (!user || !token) return
 
-    // connect passing a stable user id (socket auth uses user id)
     socketService.connect(token)
     fetchConversations()
 
-    // Listen for incoming messages
     const handleReceiveMessage = (message: Message) => {
       setMessages(prev => [...prev, message])
       scrollToBottom()
-      fetchConversations() // Update conversation list
+      fetchConversations()
     }
 
-    // Listen for typing
     const handleUserTyping = () => {
       setIsTyping(true)
       setTimeout(() => setIsTyping(false), 3000)
@@ -221,6 +215,25 @@ export const MessagesPage = () => {
       socketService.disconnect()
     }
   }, [user, token])
+
+  // Handle userId from URL parameter (when coming from profile)
+  useEffect(() => {
+    if (userIdFromUrl && conversations.length > 0 && !selectedConversation) {
+      // Check if conversation exists
+      const existingConv = conversations.find(c => c._id === userIdFromUrl)
+      if (existingConv) {
+        handleSelectConversation(userIdFromUrl)
+      } else {
+        // Start new conversation
+        setSelectedConversation(userIdFromUrl)
+        setMessages([])
+        if (user) {
+          const roomId = [user._id, userIdFromUrl].sort().join('-')
+          socketService.joinRoom(roomId)
+        }
+      }
+    }
+  }, [userIdFromUrl, conversations])
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -353,24 +366,30 @@ export const MessagesPage = () => {
 
             {/* Messages List */}
             <div className="messages-list">
-              {messages.map((message) => {
-                const senderId = typeof message.senderId === 'string' 
-                  ? message.senderId 
-                  : message.senderId._id
-                
-                const isSent = senderId === user?._id
-                
-                return (
-                  <div key={message._id} className={`message ${isSent ? 'sent' : 'received'}`}>
-                    <div className="message-content">
-                      <p>{message.content}</p>
-                      <span className="message-time">
-                        {formatTime(message.createdAt)}
-                      </span>
+              {messages.length === 0 ? (
+                <div className="empty-state">
+                  <p>Start your conversation</p>
+                </div>
+              ) : (
+                messages.map((message) => {
+                  const senderId = typeof message.senderId === 'string' 
+                    ? message.senderId 
+                    : message.senderId._id
+                  
+                  const isSent = senderId === user?._id
+                  
+                  return (
+                    <div key={message._id} className={`message ${isSent ? 'sent' : 'received'}`}>
+                      <div className="message-content">
+                        <p>{message.content}</p>
+                        <span className="message-time">
+                          {formatTime(message.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
               
               {isTyping && (
                 <div className="message received">
